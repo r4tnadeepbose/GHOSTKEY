@@ -15,6 +15,8 @@ import ctypes
 import json
 import os
 import sys
+import shutil
+import subprocess
 import threading
 import queue
 import time
@@ -153,8 +155,9 @@ def dedupe_join(items, limit=12):
     return ", ".join(seen)
 
 
-def get_foreground():
-    if sys.platform != "win32" or wintypes is None:
+def _get_foreground_windows():
+    """Return (window title, process name) using native Windows APIs."""
+    if wintypes is None:
         return "", ""
     try:
         user32 = ctypes.windll.user32
@@ -181,6 +184,55 @@ def get_foreground():
         return title, proc
     except Exception:
         return "", ""
+
+
+def _get_foreground_linux():
+    """Get the active X11/XWayland window using xdotool or wmctrl.
+
+    Native Wayland compositors intentionally restrict global active-window
+    inspection. This method does not bypass those restrictions.
+    """
+    if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+        return "", ""
+
+    xdotool = shutil.which("xdotool")
+    if xdotool and os.environ.get("DISPLAY"):
+        try:
+            wid = subprocess.run(
+                [xdotool, "getactivewindow"], capture_output=True, text=True,
+                timeout=1.0, check=True
+            ).stdout.strip()
+            title = subprocess.run(
+                [xdotool, "getwindowname", wid], capture_output=True, text=True,
+                timeout=1.0, check=True
+            ).stdout.strip()
+            pid_text = subprocess.run(
+                [xdotool, "getwindowpid", wid], capture_output=True, text=True,
+                timeout=1.0, check=True
+            ).stdout.strip()
+            proc = ""
+            if pid_text.isdigit():
+                proc_path = Path("/proc") / pid_text
+                try:
+                    proc = (proc_path / "comm").read_text(encoding="utf-8").strip()
+                except OSError:
+                    try:
+                        proc = Path(os.readlink(proc_path / "exe")).name
+                    except OSError:
+                        proc = ""
+            return title, proc
+        except (subprocess.SubprocessError, OSError, ValueError):
+            pass
+
+    return "", ""
+
+
+def get_foreground():
+    if sys.platform == "win32":
+        return _get_foreground_windows()
+    if sys.platform.startswith("linux"):
+        return _get_foreground_linux()
+    return "", ""
 
 
 def enable_dpi_awareness():
@@ -670,9 +722,18 @@ class GhostkeyApp:
         self.nb.add(tab, text="⚙  Settings")
 
         ttk.Label(tab, text="REPORT DELIVERY", style="Dim.TLabel").pack(anchor="w")
-        ttk.Label(tab, text="A detailed report is generated and sent only when you press Stop.",
+        ttk.Label(tab, text="The detailed Telegram report is generated only when you press Stop.",
                   style="Dim.TLabel").pack(anchor="w", pady=(4, 8))
+
+        interval_row = ttk.Frame(tab)
+        interval_row.pack(fill="x", pady=(2, 10))
+        ttk.Label(interval_row, text="Local checkpoint interval (seconds)",
+                  style="Dim.TLabel").pack(side="left")
         self.interval_var = tk.IntVar(value=self.interval_seconds())
+        ttk.Spinbox(interval_row, from_=5, to=3600, increment=5, width=8,
+                    textvariable=self.interval_var).pack(side="left", padx=(12, 0))
+        ttk.Label(tab, text="Records a local checkpoint at this interval; it does not send a Telegram message.",
+                  style="Dim.TLabel", font=T["font_s"]).pack(anchor="w", pady=(0, 10))
 
         self.autostart_var = tk.BooleanVar(value=bool(self.cfg.get("start_on_launch")))
         ttk.Checkbutton(tab, text="start tracing automatically when the app opens",
@@ -958,6 +1019,13 @@ class GhostkeyApp:
         self.active_lbl.configure(text="●  STARTING   |   Waiting for foreground window…", fg=T["red"])
         self._event_file("SESSION", self.session_id, "started")
         self._trace("[trace] session started — foreground polling enabled", "info")
+        if sys.platform.startswith("linux"):
+            if not shutil.which("xdotool"):
+                self._trace("[linux] xdotool not found; install it (sudo apt install xdotool) for X11/XWayland tracking", "err")
+            elif not os.environ.get("DISPLAY"):
+                self._trace("[linux] DISPLAY is unset; active-window tracking may be unavailable in this session", "err")
+            elif os.environ.get("WAYLAND_DISPLAY"):
+                self._trace("[linux] Wayland detected; xdotool sees XWayland windows only, not every native Wayland app", "info")
         self._refresh_stats()
         try:
             self.worker = threading.Thread(target=self._worker_loop, name="ghostkey-tracker", daemon=True)
@@ -1090,8 +1158,6 @@ class GhostkeyApp:
                 # Stop wins over a sample that was in flight when the user clicked.
                 if self.stop_event.is_set() or self._closing:
                     break
-                if not title and not proc:
-                    continue
                 with self.lock:
                     if self.last_tick:
                         delta = max(0.0, now - self.last_tick)
@@ -1099,8 +1165,15 @@ class GhostkeyApp:
                             self.app_seconds[self.current[0]] = (
                                 self.app_seconds.get(self.current[0], 0.0) + delta)
                     self.last_tick = now
+                    # An empty sample means the active window could not be read
+                    # (for example, desktop/lock screen). Close the previous app
+                    # instead of silently leaving it marked active forever.
+                    if not title and not proc:
+                        if self.current:
+                            self._close_app_locked(now)
+                        continue
                     if self.current is None:
-                        self._open_app_locked((proc or "?", title), now)
+                        self._open_app_locked((proc or "unknown-process", title), now)
                     elif (proc or "?") != self.current[0]:
                         self._close_app_locked(now)
                         self._open_app_locked((proc or "?", title), now)
@@ -1117,10 +1190,34 @@ class GhostkeyApp:
                                     del history[:len(history) - 500]
                                 self._event_file("TITLE", proc_name, clean_text(title, 180))
                                 self._trace(f"[title] {proc_name} — {clean_text(title, 150)}", "open")
+                    # Periodic checkpoints are local-only. Keep session transitions
+                    # intact so the Stop report includes the complete session.
+                    if self.next_digest and now >= self.next_digest:
+                        self._write_checkpoint_locked(now)
+                        self.next_digest = now + self.interval_seconds()
             except Exception as exc:
                 # A transient OS/process/API error should not terminate tracking.
                 self._trace(f"[worker] recoverable error: {exc}", "err")
                 self.stop_event.wait(0.5)
+
+    def _write_checkpoint_locked(self, now):
+        """Append a compact local checkpoint without clearing session data."""
+        try:
+            ensure_dir()
+            elapsed = max(0, int(now - (self.start_time or now)))
+            current = self.current[0] if self.current else "(none)"
+            ranked = sorted(self.app_seconds.items(), key=lambda item: item[1], reverse=True)[:10]
+            lines = [
+                f"{datetime.now():%Y-%m-%d %H:%M:%S}  CHECKPOINT  session={self.session_id}",
+                f"  elapsed={fmt_secs(elapsed)}  active_app={clean_text(current, 100)}",
+            ]
+            lines.extend(f"  app={clean_text(proc, 100)}  time={fmt_secs(seconds)}"
+                         for proc, seconds in ranked)
+            with open(EVENTS_FILE, "a", encoding="utf-8") as handle:
+                handle.write("\n".join(lines) + "\n")
+            self._trace(f"[checkpoint] local activity checkpoint written ({self.interval_seconds()}s interval)", "info")
+        except OSError as exc:
+            self._trace(f"[checkpoint] could not write local checkpoint: {exc}", "err")
 
     def _open_app_locked(self, new, now):
         proc, title = new
@@ -1418,8 +1515,11 @@ class GhostkeyApp:
         self.cfg["interval"] = value
         self.cfg["start_on_launch"] = bool(self.autostart_var.get())
         save_config(self.cfg)
-        self._trace("[cfg] saved · final report on Stop", "info")
-        messagebox.showinfo(APP_NAME, "Settings saved. A report is generated only when you stop the session.")
+        if self.running:
+            with self.lock:
+                self.next_digest = time.time() + value
+        self._trace(f"[cfg] saved · local checkpoint every {value}s · final Telegram report on Stop", "info")
+        messagebox.showinfo(APP_NAME, "Settings saved. Local checkpoints use the selected interval; the detailed Telegram report is sent only when you press Stop.")
 
     def open_digest_log(self):
         ensure_dir()
@@ -1462,6 +1562,10 @@ class GhostkeyApp:
         self.running = False
         self.stopping = False
         self.stop_event.set()
+        try:
+            self._event_file("GUI", APP_NAME, "closed")
+        except Exception:
+            pass
         try:
             self.cfg["geometry"] = self.root.geometry()
             save_config(self.cfg)
