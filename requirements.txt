@@ -1,0 +1,3 @@
+# ghostkey runtime dependencies
+# Tkinter ships with CPython on Windows/macOS. On Linux install python3-tk.
+requests>=2.31,<3

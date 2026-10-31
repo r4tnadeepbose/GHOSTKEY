@@ -1,0 +1,13 @@
+Ghostkey
+Copyright (c) 2026 r4tnadeepbose
+
+This product includes software developed by third parties:
+
+- Python — https://www.python.org/ — PSF License Agreement.
+- Tcl/Tk and Tkinter — https://www.tcl.tk/ — BSD-style licenses.
+- requests — https://requests.readthedocs.io/ — Apache License 2.0.
+- Telegram Bot API — https://core.telegram.org/bots/api — operated by Telegram,
+  subject to Telegram's terms of service.
+
+Ghostkey is not affiliated with or endorsed by Telegram, the Python Software
+Foundation, or the Tcl/Tk project.

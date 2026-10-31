@@ -1,0 +1,8 @@
+{
+  "interval": 30,
+  "poll": 1.0,
+  "start_on_launch": false,
+  "geometry": "",
+  "bot_token": "",
+  "chat_id": ""
+}

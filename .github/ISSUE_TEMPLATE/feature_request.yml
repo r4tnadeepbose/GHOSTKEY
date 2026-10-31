@@ -1,0 +1,53 @@
+name: Feature request
+description: Suggest an improvement or a new capability.
+title: "[feat]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Requests that increase covert monitoring, stealth, or evasion will be declined.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - UI / UX
+        - Foreground tracking
+        - Reports / digest
+        - Telegram delivery
+        - Settings / config
+        - Docs
+        - Packaging
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: This request does not add new hidden collection or off-device transmission without user action.
+          required: true

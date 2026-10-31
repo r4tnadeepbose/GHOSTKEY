@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you reference Ghostkey in research or documentation, cite it as below."
+title: "Ghostkey: local foreground-activity telemetry dashboard"
+abstract: >-
+  Ghostkey is a Windows desktop utility that samples the foreground application
+  and visible window title, records transitions and approximate per-application
+  usage, and optionally relays a session report to a configured Telegram chat.
+type: software
+authors:
+  - alias: r4tnadeepbose
+    name: r4tnadeepbose
+repository-code: "https://github.com/r4tnadeepbose/GHOSTKEY"
+url: "https://github.com/r4tnadeepbose/GHOSTKEY"
+license: MIT
+version: 1.0.0
+date-released: 2026-10-29
+keywords:
+  - activity telemetry
+  - foreground window
+  - desktop dashboard
+  - tkinter
+  - telegram

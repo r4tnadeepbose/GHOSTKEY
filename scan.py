@@ -1,4 +1,4 @@
-"""ghostkey :: activity telemetry + telegram relay (minimal black/grey).
+"""ghostkey :: activity telemetry + telegram relay (vintage amber console).
 
 Tracks the foreground window (process + title), open/close transitions
 and time per application. Writes digests to a local log and sends them
@@ -14,18 +14,18 @@ Data dir: ~/.ghostkey
 import ctypes
 import json
 import os
-import sys
+import queue
 import shutil
 import subprocess
+import sys
 import threading
-import queue
 import time
+import tkinter as tk
+import tkinter.font as tkfont
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
-import tkinter as tk
-import tkinter.font as tkfont
-from tkinter import ttk, scrolledtext, messagebox, filedialog
+from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 try:
     from ctypes import wintypes
@@ -43,7 +43,7 @@ TELEGRAM_TOKEN = ""
 TELEGRAM_CHAT_ID = ""
 # -----------------------------------------------------------------------
 
-APP_NAME = "ghostkey"
+APP_NAME = "Ghostkey"
 DATA_DIR = Path.home() / ".ghostkey"
 CONFIG_FILE = DATA_DIR / "config.json"
 EVENTS_FILE = DATA_DIR / "events.log"
@@ -61,24 +61,26 @@ DEFAULT_CONFIG = {
 
 FONT_FAMILY = "Consolas"
 
-# ---- Ghostkey dark telemetry palette (cyan accent) ----
+# ---- Ghostkey vintage telemetry palette (warm charcoal + amber phosphor) ----
 T = {
-    "bg":         "#080a0c",
-    "panel":      "#101214",
-    "panel2":     "#171a1d",
-    "panel3":     "#20262b",
-    "border":     "#30363d",
-    "border2":    "#46515c",
-    "fg":         "#edf2f7",
-    "fg_mid":     "#c1c9d2",
-    "dim":        "#82909e",
-    "dimmer":     "#58636e",
-    "accent":     "#70d7ff",
-    "accent2":    "#245a70",
-    "green":      "#55d98b",
-    "warn":       "#e5c66b",
-    "red":        "#e35d6a",
-    "red_hover":  "#c94250",
+    "bg":         "#0a0908",
+    "panel":      "#12100d",
+    "panel2":     "#191611",
+    "panel3":     "#221e17",
+    "border":     "#2d2820",
+    "border2":    "#4a4132",
+    "fg":         "#e9e0cf",
+    "fg_mid":     "#c6bba6",
+    "dim":        "#8b806d",
+    "dimmer":     "#5d5546",
+    "accent":     "#e0a458",
+    "accent2":    "#6b4e26",
+    "accent_soft":"#7a6238",
+    "accent_ink": "#1a1206",
+    "green":      "#93b56e",
+    "warn":       "#d8bd77",
+    "red":        "#cf6f5e",
+    "red_hover":  "#b85a49",
     "font":       ("Consolas", 10),
     "font_s":     ("Consolas", 9),
     "font_xs":    ("Consolas", 8),
@@ -265,13 +267,15 @@ def send_telegram(token, chat_id, message, timeout=15):
 
 
 class RoundedPanel(tk.Frame):
-    """Frame with a rounded canvas border; child widgets go in .content."""
-    def __init__(self, master, *, bg, border, radius=14, border_width=1, **kwargs):
+    """Framed panel with optional corner ticks; child widgets go in .content."""
+    def __init__(self, master, *, bg, border, radius=14, border_width=1,
+                 accent=None, **kwargs):
         super().__init__(master, bg=bg, bd=0, highlightthickness=0, **kwargs)
         self._panel_bg = bg
         self._border = border
         self._radius = radius
         self._border_width = border_width
+        self._accent = accent
         self._canvas = tk.Canvas(self, bg=bg, bd=0, highlightthickness=0)
         self._canvas.place(x=0, y=0, relwidth=1, relheight=1)
         self.content = tk.Frame(self, bg=bg, bd=0, highlightthickness=0)
@@ -282,7 +286,7 @@ class RoundedPanel(tk.Frame):
         self.bind('<Configure>', self._draw, add='+')
 
     def _draw(self, _event=None):
-        """Draw a crisp rectangular panel border; avoids distorted canvas corners."""
+        """Draw a crisp rectangular panel border plus corner ticks."""
         try:
             self._canvas.delete('rounded-panel')
             w, h = max(2, self.winfo_width()), max(2, self.winfo_height())
@@ -293,6 +297,18 @@ class RoundedPanel(tk.Frame):
                 width=self._border_width,
                 tags='rounded-panel',
             )
+            if self._accent:
+                tick = 8
+                x1, y1, x2, y2 = 1, 1, w - 1, h - 1
+                for xa, ya, xb, yb in (
+                    (x1, y1, x1 + tick, y1), (x1, y1, x1, y1 + tick),
+                    (x2, y1, x2 - tick, y1), (x2, y1, x2, y1 + tick),
+                    (x1, y2, x1 + tick, y2), (x1, y2, x1, y2 - tick),
+                    (x2, y2, x2 - tick, y2), (x2, y2, x2, y2 - tick),
+                ):
+                    self._canvas.create_line(xa, ya, xb, yb,
+                                             fill=self._accent, width=1,
+                                             tags='rounded-panel')
             self._canvas.tag_lower('rounded-panel')
         except tk.TclError:
             pass
@@ -304,7 +320,7 @@ class GhostkeyApp:
         self.cfg = load_config()
         pick_fonts(root)
 
-        self.root.title("ghostkey")
+        self.root.title("Ghostkey :: activity telemetry")
         geometry = self.cfg.get("geometry") or "1440x900"
         try:
             self.root.geometry(geometry)
@@ -396,22 +412,22 @@ class GhostkeyApp:
               foreground=[("active", T["accent"]), ("disabled", T["dimmer"])],
               bordercolor=[("active", T["accent"])])
 
-        s.configure("Accent.TButton", background=T["accent2"], foreground="#031008",
+        s.configure("Accent.TButton", background=T["accent"], foreground=T["accent_ink"],
                     bordercolor=T["accent"], lightcolor=T["accent"],
                     darkcolor=T["accent2"], borderwidth=1, relief="solid",
-                    padding=(14, 8), font=T["font_s"])
+                    padding=(14, 8), font=(FONT_FAMILY, 9, "bold"))
         s.map("Accent.TButton",
-              background=[("active", T["accent"]), ("disabled", T["panel2"])],
-              foreground=[("active", "#031008"), ("disabled", T["dimmer"])])
+              background=[("active", "#f0bd72"), ("disabled", T["panel2"])],
+              foreground=[("active", T["accent_ink"]), ("disabled", T["dimmer"])])
 
-        s.configure("Danger.TButton", background="#8f1020", foreground="#fff0f1",
-                    bordercolor="#d6293e", lightcolor="#d6293e",
-                    darkcolor="#700b17", borderwidth=1, relief="solid",
+        s.configure("Danger.TButton", background="#6e2a22", foreground="#f6ded7",
+                    bordercolor="#a84a3c", lightcolor="#a84a3c",
+                    darkcolor="#4d1b16", borderwidth=1, relief="solid",
                     padding=(12, 7), font=T["font_s"])
         s.map("Danger.TButton",
-              background=[("active", T.get("red_hover", "#e01b32")), ("disabled", T["panel2"])],
-              foreground=[("active", "#ffffff"), ("disabled", T["dimmer"])],
-              bordercolor=[("active", "#ff6474")])
+              background=[("active", T["red_hover"]), ("disabled", T["panel2"])],
+              foreground=[("active", "#fff4f0"), ("disabled", T["dimmer"])],
+              bordercolor=[("active", T["red"])])
         s.configure("Stop.TButton", background=T["panel2"], foreground=T["fg"],
                     bordercolor=T["border2"], lightcolor=T["border2"],
                     darkcolor=T["border2"], borderwidth=1, relief="solid",
@@ -460,28 +476,40 @@ class GhostkeyApp:
 
     # ------------------------------------------------------------ ui
     def _build_ui(self):
-        header = tk.Frame(self.root, bg=T["bg"], height=56)
-        header.pack(fill="x", padx=18, pady=(14, 0))
+        header = tk.Frame(self.root, bg=T["bg"], height=62)
+        header.pack(fill="x", padx=18, pady=(12, 0))
         header.pack_propagate(False)
 
         left = tk.Frame(header, bg=T["bg"])
         left.pack(side="left", fill="y")
         brand = tk.Frame(left, bg=T["bg"])
-        brand.pack(anchor="w")
-        tk.Label(brand, text="♧", bg=T["bg"], fg=T["accent"],
-                 font=(FONT_FAMILY, 25, "bold")).pack(side="left", padx=(0, 10))
-        brand_text = tk.Frame(brand, bg=T["bg"])
-        brand_text.pack(side="left", pady=(0, 1))
-        tk.Label(brand_text, text="ghostkey", bg=T["bg"], fg=T["fg"],
-                 font=(FONT_FAMILY, 21, "bold")).pack(anchor="w")
-        tk.Label(brand_text, text="activity telemetry", bg=T["bg"], fg=T["dim"],
-                 font=T["font_xs"]).pack(anchor="w")
+        brand.pack(anchor="w", pady=(8, 0))
+        tk.Label(brand, text="▚", bg=T["bg"], fg=T["accent"],
+                 font=(FONT_FAMILY, 24, "bold")).pack(side="left", padx=(0, 9))
+        tk.Label(brand, text="Ghostkey", bg=T["bg"], fg=T["fg"],
+                 font=(FONT_FAMILY, 20, "bold")).pack(side="left")
+        self.cursor_lbl = tk.Label(brand, text="█", bg=T["bg"], fg=T["accent"],
+                                   font=(FONT_FAMILY, 15, "bold"))
+        self.cursor_lbl.pack(side="left", padx=(3, 0), pady=(6, 0))
+        tk.Label(left, text="activity telemetry  //  local console", bg=T["bg"],
+                 fg=T["dim"], font=T["font_xs"]).pack(anchor="w", padx=(38, 0))
 
         right = tk.Frame(header, bg=T["bg"])
         right.pack(side="right", fill="y")
         self.status_lbl = tk.Label(right, text="● IDLE", bg=T["bg"], fg=T["fg_mid"],
                                    font=(FONT_FAMILY, 9))
-        self.status_lbl.pack(side="right", pady=14)
+        self.status_lbl.pack(side="right", pady=(18, 0))
+        tk.Label(right, text="│", bg=T["bg"], fg=T["border2"],
+                 font=T["font_s"]).pack(side="right", padx=12, pady=(16, 0))
+        self.clock_lbl = tk.Label(right, text="", bg=T["bg"], fg=T["dim"],
+                                  font=T["font_xs"])
+        self.clock_lbl.pack(side="right", pady=(18, 0))
+        self.sid_lbl = tk.Label(right, text=f"SID {self.session_id}", bg=T["bg"],
+                                fg=T["dimmer"], font=T["font_xs"])
+        self.sid_lbl.pack(side="right", padx=(0, 12), pady=(18, 0))
+
+        rule = tk.Frame(self.root, bg=T["border"], height=1)
+        rule.pack(fill="x", padx=18, pady=(10, 0))
 
         self._build_stats()
         self._build_active_strip()
@@ -494,13 +522,25 @@ class GhostkeyApp:
         self._tab_telegram()
         self._tab_settings()
 
-        footer = tk.Frame(self.root, bg=T["bg"], height=24)
+        footer = tk.Frame(self.root, bg=T["bg"], height=26)
         footer.pack(fill="x", padx=24, pady=(2, 10))
         footer.pack_propagate(False)
-        tk.Label(footer, text="f9 start/stop   f5 flush", bg=T["bg"], fg=T["dimmer"],
-                 font=T["font_xs"]).pack(side="left", pady=4)
-        tk.Label(footer, text=str(DATA_DIR), bg=T["bg"], fg=T["dimmer"],
-                 font=T["font_xs"]).pack(side="right", pady=4)
+        tk.Label(footer, text="[F9] start/stop   [F5] flush   [^K] filter   [ESC] clear",
+                 bg=T["bg"], fg=T["dimmer"], font=T["font_xs"]).pack(side="left", pady=5)
+        tk.Label(footer, text=f"» {DATA_DIR}", bg=T["bg"], fg=T["dimmer"],
+                 font=T["font_xs"]).pack(side="right", pady=5)
+        tk.Label(footer, text="foreground metadata only · no keystrokes",
+                 bg=T["bg"], fg=T["dimmer"], font=T["font_xs"]).pack(
+                     side="right", padx=(0, 18), pady=5)
+
+    def _section_prompt(self, parent, command, bg):
+        """Shell-style section header: `$ command` with an amber prompt."""
+        row = tk.Frame(parent, bg=bg)
+        tk.Label(row, text="$", bg=bg, fg=T["accent"],
+                 font=T["font_xs"]).pack(side="left", padx=(0, 6))
+        tk.Label(row, text=command, bg=bg, fg=T["dim"],
+                 font=T["font_xs"]).pack(side="left")
+        return row
 
     def _build_stats(self):
         row = tk.Frame(self.root, bg=T["bg"])
@@ -515,15 +555,15 @@ class GhostkeyApp:
         ]
         for key, icon, label in cells:
             card = RoundedPanel(row, bg=T["panel"], border=T["border2"], radius=14,
-                                border_width=1, height=76)
+                                border_width=1, accent=T["accent_soft"], height=76)
             card.pack(side="left", fill="both", expand=True, padx=(0, 12))
             card.pack_propagate(False)
             icon_lbl = tk.Label(card.content, text=icon, bg=T["panel"], fg=T["accent"],
-                                font=(FONT_FAMILY, 22, "bold"), width=3)
+                                font=(FONT_FAMILY, 20, "bold"), width=3)
             icon_lbl.pack(side="left", padx=(8, 2))
             body = tk.Frame(card.content, bg=T["panel"])
             body.pack(side="left", fill="both", expand=True, pady=10)
-            tk.Label(body, text=label, bg=T["panel"], fg=T["dim"],
+            tk.Label(body, text=f":: {label}", bg=T["panel"], fg=T["dim"],
                      font=T["font_xs"]).pack(anchor="w")
             value = tk.Label(body, text="—", bg=T["panel"], fg=T["accent"],
                              font=T["font_stat"])
@@ -532,30 +572,30 @@ class GhostkeyApp:
 
     def _build_active_strip(self):
         strip = RoundedPanel(self.root, bg=T["panel"], border=T["border2"], radius=12,
-                             border_width=1, height=38)
+                             border_width=1, accent=T["accent_soft"], height=38)
         strip.pack(fill="x", padx=24, pady=(12, 0))
-        self.active_lbl = tk.Label(strip.content, text="●  SESSION IDLE   |   Press Start to begin", bg=T["panel"],
-                                   fg=T["red"], font=T["font_s"], anchor="w")
+        self.active_lbl = tk.Label(strip.content, text="»  SESSION IDLE   |   press [START] to begin", bg=T["panel"],
+                                   fg=T["dim"], font=T["font_s"], anchor="w")
         self.active_lbl.pack(side="left", padx=6, pady=4)
-        self.last_lbl = tk.Label(strip.content, text="last report —", bg=T["panel"],
+        self.last_lbl = tk.Label(strip.content, text="last digest » —", bg=T["panel"],
                                  fg=T["dimmer"], font=T["font_xs"])
         self.last_lbl.pack(side="right", padx=10)
 
     def _build_controls(self):
         bar = tk.Frame(self.root, bg=T["bg"])
         bar.pack(fill="x", padx=24, pady=(12, 0))
-        self.start_btn = ttk.Button(bar, text="▶  Start", style="Accent.TButton",
+        self.start_btn = ttk.Button(bar, text="[ ▶ START ]", style="Accent.TButton",
                                     command=self.start)
         self.start_btn.pack(side="left", padx=(0, 4))
-        self.stop_btn = ttk.Button(bar, text="■  Stop", style="Stop.TButton", command=self.stop, state="disabled")
+        self.stop_btn = ttk.Button(bar, text="[ ■ STOP ]", style="Stop.TButton", command=self.stop, state="disabled")
         self.stop_btn.pack(side="left", padx=4)
-        self.flush_btn = ttk.Button(bar, text="➤  Flush + Send", command=self.flush_now,
+        self.flush_btn = ttk.Button(bar, text="[ ➤ FLUSH ]", command=self.flush_now,
                                     state="disabled")
         self.flush_btn.pack(side="left", padx=4)
-        ttk.Button(bar, text="↗  Test TG", command=self.test_telegram).pack(side="left", padx=4)
-        ttk.Button(bar, text="⇩  Export", command=self.export_digest).pack(side="left", padx=4)
-        ttk.Button(bar, text="▤  Clear", command=self.clear_state).pack(side="left", padx=4)
-        ttk.Button(bar, text="▣  Open Log", command=self.open_digest_log).pack(
+        ttk.Button(bar, text="[ ↗ TEST TG ]", command=self.test_telegram).pack(side="left", padx=4)
+        ttk.Button(bar, text="[ ⇩ EXPORT ]", command=self.export_digest).pack(side="left", padx=4)
+        ttk.Button(bar, text="[ ▤ CLEAR ]", command=self.clear_state).pack(side="left", padx=4)
+        ttk.Button(bar, text="[ ▣ OPEN LOG ]", command=self.open_digest_log).pack(
             side="right", padx=(4, 0))
 
     def _style_scrollbar(self, scrolled):
@@ -568,11 +608,11 @@ class GhostkeyApp:
 
     def _tab_trace(self):
         tab = ttk.Frame(self.nb, padding=12)
-        self.nb.add(tab, text="▤  Trace")
+        self.nb.add(tab, text=" 01 · trace ")
 
         filt = ttk.Frame(tab)
         filt.pack(fill="x", pady=(0, 8))
-        ttk.Label(filt, text="FILTER", style="Dim.TLabel").pack(side="left", padx=(0, 8))
+        ttk.Label(filt, text="$ grep", style="Dim.TLabel").pack(side="left", padx=(0, 8))
         self.filter_var = tk.StringVar()
         self.filter_var.trace_add("write", lambda *_: self._refilter())
         self.filter_entry = ttk.Entry(filt, textvariable=self.filter_var)
@@ -588,11 +628,10 @@ class GhostkeyApp:
         paned.pack(fill="both", expand=True)
 
         log_card = RoundedPanel(paned, bg=T["panel"], border=T["border2"], radius=14,
-                                border_width=1)
+                                border_width=1, accent=T["accent_soft"])
         head = tk.Frame(log_card.content, bg=T["panel"])
         head.pack(fill="x", padx=10, pady=(6, 0))
-        tk.Label(head, text="LIVE TRACE  /  EVENT STREAM", bg=T["panel"], fg=T["dim"],
-                 font=T["font_xs"]).pack(side="left")
+        self._section_prompt(head, "tail -f trace.log", T["panel"]).pack(side="left")
         self.live_log = scrolledtext.ScrolledText(
             log_card.content, wrap="char", font=T["font_s"],
             bg=T["panel"], fg=T["fg_mid"], insertbackground=T["accent"],
@@ -606,11 +645,10 @@ class GhostkeyApp:
         self._style_scrollbar(self.live_log)
 
         table_card = RoundedPanel(paned, bg=T["panel"], border=T["border2"], radius=14,
-                                  border_width=1)
+                                  border_width=1, accent=T["accent_soft"])
         head = tk.Frame(table_card.content, bg=T["panel"])
         head.pack(fill="x", padx=10, pady=(6, 0))
-        tk.Label(head, text="▮  APP RUNTIME", bg=T["panel"], fg=T["dim"],
-                 font=T["font_xs"]).pack(side="left")
+        self._section_prompt(head, "ps --sort=time", T["panel"]).pack(side="left")
 
         wrap = tk.Frame(table_card.content, bg=T["panel"])
         wrap.pack(fill="both", expand=True, padx=1, pady=(4, 1))
@@ -638,22 +676,21 @@ class GhostkeyApp:
 
     def _tab_output(self):
         tab = ttk.Frame(self.nb, padding=12)
-        self.nb.add(tab, text="▣  Output")
+        self.nb.add(tab, text=" 02 · output ")
 
         bar = ttk.Frame(tab)
         bar.pack(fill="x", pady=(0, 8))
-        ttk.Button(bar, text="➤  Flush + Send", command=self.flush_now).pack(side="left", padx=(0, 4))
-        ttk.Button(bar, text="⇩  Export", command=self.export_digest).pack(side="left", padx=4)
-        ttk.Button(bar, text="copy", command=self.copy_digest).pack(side="left", padx=4)
-        ttk.Button(bar, text="resend", command=self.resend_last).pack(side="left", padx=4)
+        ttk.Button(bar, text="[ ➤ FLUSH ]", command=self.flush_now).pack(side="left", padx=(0, 4))
+        ttk.Button(bar, text="[ ⇩ EXPORT ]", command=self.export_digest).pack(side="left", padx=4)
+        ttk.Button(bar, text="[ COPY ]", command=self.copy_digest).pack(side="left", padx=4)
+        ttk.Button(bar, text="[ RESEND ]", command=self.resend_last).pack(side="left", padx=4)
 
         card = RoundedPanel(tab, bg=T["panel"], border=T["border2"], radius=14,
-                            border_width=1)
+                            border_width=1, accent=T["accent_soft"])
         card.pack(fill="both", expand=True)
         head = tk.Frame(card.content, bg=T["panel"])
         head.pack(fill="x", padx=10, pady=(7, 0))
-        tk.Label(head, text="LAST DIGEST", bg=T["panel"], fg=T["dim"],
-                 font=T["font_xs"]).pack(side="left")
+        self._section_prompt(head, "cat last-digest.txt", T["panel"]).pack(side="left")
         self.digest_meta = tk.Label(head, text="—", bg=T["panel"], fg=T["dimmer"],
                                     font=T["font_xs"])
         self.digest_meta.pack(side="right")
@@ -674,9 +711,10 @@ class GhostkeyApp:
 
     def _tab_telegram(self):
         tab = ttk.Frame(self.nb, padding=16)
-        self.nb.add(tab, text="➤  Telegram")
+        self.nb.add(tab, text=" 03 · telegram ")
 
-        ttk.Label(tab, text="credentials", style="Dim.TLabel").pack(anchor="w")
+        ttk.Label(tab, text="$ cat ~/.ghostkey/config.json  // credentials",
+                  style="Dim.TLabel").pack(anchor="w")
         r1 = ttk.Frame(tab)
         r1.pack(fill="x", pady=(4, 6))
         ttk.Label(r1, text="bot token", width=14, style="Dim.TLabel").pack(side="left")
@@ -695,12 +733,12 @@ class GhostkeyApp:
 
         btns = ttk.Frame(tab)
         btns.pack(fill="x", pady=(14, 0))
-        ttk.Button(btns, text="save", style="Accent.TButton",
+        ttk.Button(btns, text="[ SAVE ]", style="Accent.TButton",
                    command=self.save_telegram).pack(side="left", padx=(0, 6))
-        ttk.Button(btns, text="test", command=self.test_telegram).pack(side="left")
+        ttk.Button(btns, text="[ TEST ]", command=self.test_telegram).pack(side="left")
 
         ttk.Separator(tab, orient="horizontal").pack(fill="x", pady=20)
-        ttk.Label(tab, text="status", style="Dim.TLabel").pack(anchor="w")
+        ttk.Label(tab, text="$ status", style="Dim.TLabel").pack(anchor="w")
         self.tg_status = tk.Label(tab, text=self._tg_status_text(), bg=T["bg"],
                                   fg=T["fg"], font=T["font_s"], justify="left")
         self.tg_status.pack(anchor="w", pady=(4, 16))
@@ -719,9 +757,9 @@ class GhostkeyApp:
 
     def _tab_settings(self):
         tab = ttk.Frame(self.nb, padding=16)
-        self.nb.add(tab, text="⚙  Settings")
+        self.nb.add(tab, text=" 04 · settings ")
 
-        ttk.Label(tab, text="REPORT DELIVERY", style="Dim.TLabel").pack(anchor="w")
+        ttk.Label(tab, text="$ ghostkey --delivery", style="Dim.TLabel").pack(anchor="w")
         ttk.Label(tab, text="The detailed Telegram report is generated only when you press Stop.",
                   style="Dim.TLabel").pack(anchor="w", pady=(4, 8))
 
@@ -739,11 +777,11 @@ class GhostkeyApp:
         ttk.Checkbutton(tab, text="start tracing automatically when the app opens",
                         variable=self.autostart_var).pack(anchor="w", pady=(4, 12))
 
-        ttk.Button(tab, text="save", style="Accent.TButton",
+        ttk.Button(tab, text="[ SAVE ]", style="Accent.TButton",
                    command=self.save_settings).pack(anchor="w")
 
         ttk.Separator(tab, orient="horizontal").pack(fill="x", pady=18)
-        ttk.Label(tab, text="what is recorded", style="Dim.TLabel").pack(anchor="w")
+        ttk.Label(tab, text="$ man ghostkey", style="Dim.TLabel").pack(anchor="w")
         info = (
             "foreground window at ~1 Hz:\n"
             "  · process name + visible window title changes\n"
@@ -758,7 +796,7 @@ class GhostkeyApp:
                   justify="left").pack(anchor="w", pady=(6, 0))
 
         ttk.Separator(tab, orient="horizontal").pack(fill="x", pady=18)
-        ttk.Label(tab, text="data", style="Dim.TLabel").pack(anchor="w")
+        ttk.Label(tab, text="$ ls ~/.ghostkey", style="Dim.TLabel").pack(anchor="w")
         ttk.Label(tab, text=str(DATA_DIR), style="Dim.TLabel",
                   font=T["font_s"]).pack(anchor="w", pady=(2, 8))
         row2 = ttk.Frame(tab)
@@ -795,6 +833,8 @@ class GhostkeyApp:
                                           fg=T["green"] if self._blink_on else T["dim"])
             else:
                 self.status_lbl.configure(text="● IDLE", fg=T["dim"])
+            self.cursor_lbl.configure(fg=T["accent"] if self._blink_on else T["bg"])
+            self.clock_lbl.configure(text=time.strftime("%Y.%m.%d  %H:%M:%S"))
             self.root.after(600, self._blink)
         except tk.TclError:
             pass
@@ -904,7 +944,6 @@ class GhostkeyApp:
             uptime = time.time() - (self.start_time or time.time())
             apps = len(self.app_seconds)
             events = self.events_session
-            nxt = self.next_digest
             current = self.current
             ok, fail = self.tg_ok, self.tg_fail
         self.stat_values["uptime"].configure(
@@ -920,13 +959,13 @@ class GhostkeyApp:
         if self.running and current:
             proc, title = current
             active = f"{proc} — {clean_text(title, 78)}" if title else proc
-            self.active_lbl.configure(text=f"●  ACTIVE   |   {active}", fg=T["red"])
+            self.active_lbl.configure(text=f"»  ACTIVE   |   {active}", fg=T["green"])
         elif self.running:
-            self.active_lbl.configure(text="●  STARTING   |   Waiting for foreground window…", fg=T["red"])
+            self.active_lbl.configure(text="»  STARTING   |   waiting for foreground window…", fg=T["warn"])
         else:
-            self.active_lbl.configure(text="●  SESSION IDLE   |   Press Start to begin", fg=T["red"])
+            self.active_lbl.configure(text="»  SESSION IDLE   |   press [START] to begin", fg=T["dim"])
         last = self.last_digest_time.strftime("%H:%M:%S") if self.last_digest_time else "—"
-        self.last_lbl.configure(text=f"last digest {last}")
+        self.last_lbl.configure(text=f"last digest » {last}")
         if hasattr(self, "tg_status"):
             self.tg_status.configure(text=self._tg_status_text())
 
@@ -1016,7 +1055,8 @@ class GhostkeyApp:
         self.stop_btn.configure(state="normal")
         self.flush_btn.configure(state="normal")
         self.status_lbl.configure(text="● STARTING", fg=T["accent"])
-        self.active_lbl.configure(text="●  STARTING   |   Waiting for foreground window…", fg=T["red"])
+        self.sid_lbl.configure(text=f"SID {self.session_id}")
+        self.active_lbl.configure(text="»  STARTING   |   waiting for foreground window…", fg=T["warn"])
         self._event_file("SESSION", self.session_id, "started")
         self._trace("[trace] session started — foreground polling enabled", "info")
         if sys.platform.startswith("linux"):
@@ -1037,7 +1077,7 @@ class GhostkeyApp:
             self.stop_btn.configure(state="disabled")
             self.flush_btn.configure(state="disabled")
             self.status_lbl.configure(text="● ERROR", fg=T["red"])
-            self.active_lbl.configure(text=f"●  START FAILED   |   {clean_text(exc, 100)}", fg=T["red"])
+            self.active_lbl.configure(text=f"»  START FAILED   |   {clean_text(exc, 100)}", fg=T["red"])
             self._trace(f"[start] failed: {exc}", "err")
             messagebox.showerror("Ghostkey", f"Could not start tracking:\n{exc}")
             return
@@ -1056,10 +1096,10 @@ class GhostkeyApp:
         self.start_btn.configure(state="disabled")
         self.stop_btn.configure(state="disabled")
         self.flush_btn.configure(state="disabled")
-        self.status_lbl.configure(text="● FINALIZING", fg=T["red"])
+        self.status_lbl.configure(text="● FINALIZING", fg=T["warn"])
         self.active_lbl.configure(
-            text="●  FINALIZING  |  Compiling session report and sending to Telegram…",
-            fg=T["red"])
+            text="»  FINALIZING  |  compiling session report and sending to telegram…",
+            fg=T["warn"])
         self._trace("[trace] stop requested — waiting for final sample", "digest")
 
         worker = self.worker
@@ -1107,7 +1147,7 @@ class GhostkeyApp:
         self.start_btn.configure(state="normal")
         self.stop_btn.configure(state="disabled")
         self.flush_btn.configure(state="disabled")
-        self.status_lbl.configure(text="● IDLE", fg=T["red"])
+        self.status_lbl.configure(text="● IDLE", fg=T["dim"])
         if not self.cfg.get("bot_token", "").strip() or not self.cfg.get("chat_id", "").strip():
             result_text = "Final report saved locally; Telegram is not configured"
         elif self.last_tg_ok is True:
@@ -1116,7 +1156,7 @@ class GhostkeyApp:
             result_text = "Final report saved locally; Telegram delivery failed"
         else:
             result_text = "Final report saved locally"
-        self.active_lbl.configure(text=f"●  SESSION IDLE  |  {result_text}", fg=T["fg_mid"])
+        self.active_lbl.configure(text=f"»  SESSION IDLE  |  {result_text}", fg=T["fg_mid"])
         self._trace(f"[trace] session stopped — {result_text.lower()}", "digest")
         self._refresh_stats()
         self._refresh_table()
@@ -1129,7 +1169,7 @@ class GhostkeyApp:
         self.stop_btn.configure(state="disabled")
         self.flush_btn.configure(state="disabled")
         self.status_lbl.configure(text="● STOP ERROR", fg=T["red"])
-        self.active_lbl.configure(text=f"●  STOP FAILED  |  {clean_text(error, 100)}", fg=T["red"])
+        self.active_lbl.configure(text=f"»  STOP FAILED  |  {clean_text(error, 100)}", fg=T["red"])
         self._trace(f"[stop] finalization failed: {error}", "err")
         messagebox.showerror("Ghostkey", f"Could not finish the session report:\n{error}")
 

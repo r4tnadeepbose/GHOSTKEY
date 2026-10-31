@@ -22,6 +22,8 @@ Ghostkey is a Windows desktop utility that records **foreground application name
 - [Security Considerations](#security-considerations)
 - [Accuracy and Limitations](#accuracy-and-limitations)
 - [Troubleshooting](#troubleshooting)
+- [Repository Layout](#repository-layout)
+- [Documentation](#documentation)
 - [Development and Contribution](#development-and-contribution)
 - [License and Legal Status](#license-and-legal-status)
 - [Third-Party Services](#third-party-services)
@@ -41,6 +43,7 @@ Ghostkey is a Windows desktop utility that records **foreground application name
 | **Manual controls** | Test TG, Flush + Send, Export, and Copy functions |
 | **Settings** | Polling/report preferences and Telegram configuration |
 | **Responsive UI** | Background tracking and asynchronous network delivery keep the interface responsive |
+| **Interface** | Muted vintage-terminal dashboard — warm charcoal surfaces, amber phosphor accent, monospace type |
 
 ---
 
@@ -318,6 +321,69 @@ Keep a backup of the local data directory before attempting repairs. Include the
 
 ---
 
+## Repository Layout
+
+```
+GHOSTKEY/
+├── scan.py                  # application (Tkinter dashboard + tracker)
+├── readme.md                # this document
+├── LICENSE                  # MIT
+├── CHANGELOG.md             # release history
+├── CONTRIBUTING.md          # how to contribute
+├── CODE_OF_CONDUCT.md       # community standards
+├── SECURITY.md              # vulnerability reporting + threat model
+├── PRIVACY.md               # data handling notice
+├── NOTICE                   # third-party components
+├── CITATION.cff             # citation metadata
+├── pyproject.toml           # packaging + ruff + pytest config
+├── requirements.txt         # runtime dependency
+├── requirements-dev.txt     # dev tooling
+├── Makefile                 # setup / lint / test / package targets
+├── config/
+│   └── config.example.json  # configuration shape
+├── assets/
+│   └── ascii-logo.txt       # terminal banner
+├── scripts/
+│   ├── setup.ps1 / setup.sh     # create venv + install
+│   ├── run.ps1 / run.sh / run.bat
+│   ├── lint.sh                  # ruff + compile + tests
+│   ├── check_env.py             # environment report for bug reports
+│   └── package.py               # build dist/ghostkey-<version>.zip
+├── tests/
+│   ├── README.md
+│   └── test_utils.py        # helper/config/palette tests
+├── docs/
+│   ├── README.md            # documentation index
+│   ├── ARCHITECTURE.md      # threading, data flow, module map
+│   ├── DESIGN.md            # palette, typography, components
+│   ├── USAGE.md             # tab-by-tab walkthrough
+│   ├── KEYBINDINGS.md
+│   ├── TELEGRAM_SETUP.md
+│   ├── DATA_LAYOUT.md
+│   ├── LINUX_NOTES.md
+│   ├── SECURITY_MODEL.md
+│   ├── TROUBLESHOOTING.md
+│   ├── FAQ.md
+│   ├── ROADMAP.md
+│   └── screenshots/         # sanitized captures
+└── .github/
+    ├── workflows/           # ci, codeql, package
+    ├── ISSUE_TEMPLATE/
+    ├── PULL_REQUEST_TEMPLATE.md
+    ├── CODEOWNERS
+    ├── dependabot.yml
+    └── FUNDING.yml
+```
+
+---
+
+## Documentation
+
+Full documentation lives in [docs/](docs/) — architecture, design tokens, usage,
+Telegram setup, data layout, Linux notes, troubleshooting, and FAQ.
+
+---
+
 ## Development and Contribution
 
 Bug reports and improvements should include:
@@ -334,7 +400,7 @@ Bug reports and improvements should include:
 
 ## License and Legal Status
 
-**No license is granted by this README.** Unless the repository includes a separate `LICENSE` file that says otherwise, assume the code is provided without permission to redistribute, modify, or use it beyond rights granted by applicable law. Add a license file only after choosing a license whose terms you understand and intend to apply.
+Ghostkey is released under the **MIT License**. See the [LICENSE](LICENSE) file for the full terms.
 
 This project is provided **"as is"**, without express or implied warranties, to the maximum extent permitted by applicable law. The author/contributor is not responsible for misuse, unauthorized monitoring, data loss, failed delivery, or legal violations arising from deployment. Nothing in this section excludes liability that cannot legally be excluded.
 

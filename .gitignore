@@ -1,0 +1,54 @@
+# ---- ghostkey runtime data (never commit collected activity) ----
+.ghostkey/
+events.log
+digests.log
+buffer.txt
+config.json
+!config/config.example.json
+
+# ---- secrets ----
+.env
+.env.*
+*.token
+*.secret
+secrets/
+
+# ---- python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+wheels/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# ---- virtual environments ----
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# ---- editors / os ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- local exports ----
+exports/
+*.log
+!docs/**/*.log
