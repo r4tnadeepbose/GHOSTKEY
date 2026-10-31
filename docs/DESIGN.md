@@ -74,6 +74,7 @@ The app prefers `Cascadia Mono`, `Cascadia Code`, `JetBrains Mono`, then
 │ [F9] …                    metadata note · data dir
 ```
 
+- Brand: the header shows the wordmark and blinking cursor only — no image mark.
 - Minimum window 1100 × 720; default 1440 × 900.
 - Five stat cards share the row equally; the active strip spans full width.
 - Trace tab splits vertically: live stream above, app runtime table below.

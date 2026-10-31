@@ -476,40 +476,42 @@ class GhostkeyApp:
 
     # ------------------------------------------------------------ ui
     def _build_ui(self):
-        header = tk.Frame(self.root, bg=T["bg"], height=62)
-        header.pack(fill="x", padx=18, pady=(12, 0))
+        header = tk.Frame(self.root, bg=T["bg"], height=72)
+        header.pack(fill="x", padx=24, pady=(12, 0))
         header.pack_propagate(False)
 
         left = tk.Frame(header, bg=T["bg"])
         left.pack(side="left", fill="y")
         brand = tk.Frame(left, bg=T["bg"])
-        brand.pack(anchor="w", pady=(8, 0))
-        tk.Label(brand, text="▚", bg=T["bg"], fg=T["accent"],
-                 font=(FONT_FAMILY, 24, "bold")).pack(side="left", padx=(0, 9))
-        tk.Label(brand, text="Ghostkey", bg=T["bg"], fg=T["fg"],
+        brand.pack(anchor="w", pady=(7, 0))
+        text_col = tk.Frame(brand, bg=T["bg"])
+        text_col.pack(side="left", anchor="n")
+        word = tk.Frame(text_col, bg=T["bg"])
+        word.pack(anchor="w")
+        tk.Label(word, text="Ghostkey", bg=T["bg"], fg=T["fg"],
                  font=(FONT_FAMILY, 20, "bold")).pack(side="left")
-        self.cursor_lbl = tk.Label(brand, text="█", bg=T["bg"], fg=T["accent"],
+        self.cursor_lbl = tk.Label(word, text="█", bg=T["bg"], fg=T["accent"],
                                    font=(FONT_FAMILY, 15, "bold"))
-        self.cursor_lbl.pack(side="left", padx=(3, 0), pady=(6, 0))
-        tk.Label(left, text="activity telemetry  //  local console", bg=T["bg"],
-                 fg=T["dim"], font=T["font_xs"]).pack(anchor="w", padx=(38, 0))
+        self.cursor_lbl.pack(side="left", padx=(3, 0))
+        tk.Label(text_col, text="activity telemetry  //  local console", bg=T["bg"],
+                 fg=T["dim"], font=T["font_xs"]).pack(anchor="w")
 
         right = tk.Frame(header, bg=T["bg"])
         right.pack(side="right", fill="y")
         self.status_lbl = tk.Label(right, text="● IDLE", bg=T["bg"], fg=T["fg_mid"],
                                    font=(FONT_FAMILY, 9))
-        self.status_lbl.pack(side="right", pady=(18, 0))
+        self.status_lbl.pack(side="right", pady=(27, 0))
         tk.Label(right, text="│", bg=T["bg"], fg=T["border2"],
-                 font=T["font_s"]).pack(side="right", padx=12, pady=(16, 0))
+                 font=T["font_s"]).pack(side="right", padx=12, pady=(25, 0))
         self.clock_lbl = tk.Label(right, text="", bg=T["bg"], fg=T["dim"],
                                   font=T["font_xs"])
-        self.clock_lbl.pack(side="right", pady=(18, 0))
+        self.clock_lbl.pack(side="right", pady=(27, 0))
         self.sid_lbl = tk.Label(right, text=f"SID {self.session_id}", bg=T["bg"],
                                 fg=T["dimmer"], font=T["font_xs"])
-        self.sid_lbl.pack(side="right", padx=(0, 12), pady=(18, 0))
+        self.sid_lbl.pack(side="right", padx=(0, 12), pady=(27, 0))
 
         rule = tk.Frame(self.root, bg=T["border"], height=1)
-        rule.pack(fill="x", padx=18, pady=(10, 0))
+        rule.pack(fill="x", padx=24, pady=(10, 0))
 
         self._build_stats()
         self._build_active_strip()
