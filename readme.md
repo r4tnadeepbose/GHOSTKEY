@@ -33,6 +33,12 @@ Ghostkey is a Windows desktop utility that records **foreground application name
 
 ## Features
 
+<p align="center">
+  <img src="docs/screenshots/ghostkey-trace-dark.png" alt="Ghostkey dashboard in the dark theme" width="900">
+  <br>
+  <sub>Ghostkey dashboard (dark) — session totals, live trace, and per-application foreground time.</sub>
+</p>
+
 | Feature | Description |
 |---|---|
 | **Dashboard** | Session status, application count, event count, and Telegram delivery status at a glance |
@@ -43,7 +49,7 @@ Ghostkey is a Windows desktop utility that records **foreground application name
 | **Manual controls** | Test TG, Flush + Send, Export, and Copy functions |
 | **Settings** | Polling/report preferences and Telegram configuration |
 | **Responsive UI** | Background tracking and asynchronous network delivery keep the interface responsive |
-| **Interface** | Muted vintage-terminal dashboard — warm charcoal surfaces, amber phosphor accent, monospace type |
+| **Interface** | Muted vintage-terminal dashboard — warm charcoal surfaces, amber phosphor accent, monospace type; dark/light toggle (☀/☾) in the header |
 
 ---
 
@@ -55,6 +61,12 @@ During a session, Ghostkey samples the active foreground window on supported Win
 - **Foreground process name**, such as `brave.exe`, `chrome.exe`, or `python.exe`.
 - **Visible window title**, which may identify a website, selected browser tab, document, or application view.
 - **Application open/close transitions** and estimated foreground duration.
+
+<p align="center">
+  <img src="docs/screenshots/ghostkey-trace-light.png" alt="Ghostkey trace view in the light theme" width="900">
+  <br>
+  <sub>The same trace view in the light theme: timestamped metadata lines above, foreground time per app below.</sub>
+</p>
 
 ### What It Does Not Intentionally Collect
 
@@ -76,6 +88,12 @@ Ghostkey does **not** intentionally record keystrokes, clipboard contents, scree
 There is **no intended automatic recurring Telegram digest** during a session. Delivery depends on network access, valid Telegram credentials, Telegram service availability, and message-size limits. Always check the application status and local logs; do not assume a report was delivered unless Ghostkey confirms success.
 
 Telegram messages may be split into multiple messages to fit the service's message-length limit. Treat Telegram as an external third-party service: messages sent to it leave the local device and are subject to Telegram's terms, security, retention, and account settings.
+
+<p align="center">
+  <img src="docs/screenshots/ghostkey-output-light.png" alt="Ghostkey session report on the Output tab" width="900">
+  <br>
+  <sub>The generated session report on the Output tab — session totals and per-application summary before delivery.</sub>
+</p>
 
 ---
 
@@ -217,6 +235,12 @@ After launching Ghostkey, open the **Telegram** tab and configure the bot token 
 
 If `requests` is not installed, Telegram delivery will not work. Actual behavior may vary by source version and operating system.
 
+<p align="center">
+  <img src="docs/screenshots/ghostkey-telegram-dark.png" alt="Ghostkey Telegram configuration tab" width="900">
+  <br>
+  <sub>The Telegram tab — token and chat-ID fields, save/test controls, and delivery status. Never screenshot real credentials.</sub>
+</p>
+
 ### Steps
 
 1. Create and manage a bot using Telegram's official [@BotFather](https://t.me/BotFather).
@@ -254,6 +278,12 @@ Common files include:
 | `buffer.txt` | Local report/message buffer, if used by the running version |
 
 > **Note:** The exact files and behavior may vary by code version. These files can contain sensitive window-title data. Restrict access to the account and device, review retention needs, and delete records when they are no longer needed and deletion is permitted by your retention obligations.
+
+<p align="center">
+  <img src="docs/screenshots/ghostkey-settings-dark.png" alt="Ghostkey Settings tab showing the local data directory" width="900">
+  <br>
+  <sub>Settings tab — checkpoint interval, autostart, the active data directory, and quick actions to open it.</sub>
+</p>
 
 ---
 

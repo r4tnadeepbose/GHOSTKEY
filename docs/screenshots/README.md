@@ -13,7 +13,11 @@ Suggested captures:
 
 | File | View |
 |------|------|
-| `dashboard-idle.png` | Idle dashboard with trace tab |
-| `dashboard-active.png` | Active session with populated runtime table |
-| `output-tab.png` | Rendered digest |
-| `settings-tab.png` | Settings view |
+| `ghostkey-trace-dark.png` | Active session, trace tab, dark theme |
+| `ghostkey-trace-light.png` | Same trace view, light theme |
+| `ghostkey-output-dark.png` | Rendered session report, dark theme |
+| `ghostkey-output-light.png` | Rendered session report, light theme |
+| `ghostkey-telegram-dark.png` | Telegram tab (empty fields) |
+| `ghostkey-settings-dark.png` | Settings tab with data directory |
+
+All captures above are 1440 × 900 and use example session data only.

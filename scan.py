@@ -61,8 +61,8 @@ DEFAULT_CONFIG = {
 
 FONT_FAMILY = "Consolas"
 
-# ---- Ghostkey vintage telemetry palette (warm charcoal + amber phosphor) ----
-T = {
+# ---- Ghostkey telemetry palettes (warm charcoal + amber phosphor) ----
+DARK_THEME = {
     "bg":         "#0a0908",
     "panel":      "#12100d",
     "panel2":     "#191611",
@@ -77,16 +77,59 @@ T = {
     "accent2":    "#6b4e26",
     "accent_soft":"#7a6238",
     "accent_ink": "#1a1206",
+    "accent_hover": "#f0bd72",
     "green":      "#93b56e",
     "warn":       "#d8bd77",
     "red":        "#cf6f5e",
     "red_hover":  "#b85a49",
+    "danger_bg":  "#6e2a22",
+    "danger_fg":  "#f6ded7",
+    "danger_border": "#a84a3c",
+    "danger_dark": "#4d1b16",
+    "danger_hover_fg": "#fff4f0",
     "font":       ("Consolas", 10),
     "font_s":     ("Consolas", 9),
     "font_xs":    ("Consolas", 8),
     "font_title": ("Consolas", 11, "bold"),
     "font_stat":  ("Consolas", 16, "bold"),
 }
+
+LIGHT_THEME = {
+    "bg":         "#f4f0e7",
+    "panel":      "#fbf8f1",
+    "panel2":     "#f0e9dc",
+    "panel3":     "#e4dac7",
+    "border":     "#d8cdb8",
+    "border2":    "#b9a98f",
+    "fg":         "#28231b",
+    "fg_mid":     "#4a4235",
+    "dim":        "#7a6f5e",
+    "dimmer":     "#a0937e",
+    "accent":     "#a86a20",
+    "accent2":    "#e8c98f",
+    "accent_soft":"#d9b57a",
+    "accent_ink": "#fffaf0",
+    "accent_hover": "#c07f2c",
+    "green":      "#3f7d4f",
+    "warn":       "#8a6a1f",
+    "red":        "#a63a2a",
+    "red_hover":  "#8f2f22",
+    "danger_bg":  "#f7ddd6",
+    "danger_fg":  "#7a2418",
+    "danger_border": "#c96f5e",
+    "danger_dark": "#e3bfb6",
+    "danger_hover_fg": "#4a110a",
+    "font":       ("Consolas", 10),
+    "font_s":     ("Consolas", 9),
+    "font_xs":    ("Consolas", 8),
+    "font_title": ("Consolas", 11, "bold"),
+    "font_stat":  ("Consolas", 16, "bold"),
+}
+
+THEMES = {"dark": DARK_THEME, "light": LIGHT_THEME}
+# Active palette. Widgets read this at build time; toggling mutates it in place
+# and repaints the existing widget tree.
+T = dict(DARK_THEME)
 
 def pick_fonts(root):
     global FONT_FAMILY
@@ -369,6 +412,7 @@ class GhostkeyApp:
         self._trace_data = []
         self._blink_on = True
         self._ui_tick_count = 0
+        self.dark = True
 
         self._apply_theme()
         self._build_ui()
@@ -417,16 +461,16 @@ class GhostkeyApp:
                     darkcolor=T["accent2"], borderwidth=1, relief="solid",
                     padding=(14, 8), font=(FONT_FAMILY, 9, "bold"))
         s.map("Accent.TButton",
-              background=[("active", "#f0bd72"), ("disabled", T["panel2"])],
+              background=[("active", T["accent_hover"]), ("disabled", T["panel2"])],
               foreground=[("active", T["accent_ink"]), ("disabled", T["dimmer"])])
 
-        s.configure("Danger.TButton", background="#6e2a22", foreground="#f6ded7",
-                    bordercolor="#a84a3c", lightcolor="#a84a3c",
-                    darkcolor="#4d1b16", borderwidth=1, relief="solid",
+        s.configure("Danger.TButton", background=T["danger_bg"], foreground=T["danger_fg"],
+                    bordercolor=T["danger_border"], lightcolor=T["danger_border"],
+                    darkcolor=T["danger_dark"], borderwidth=1, relief="solid",
                     padding=(12, 7), font=T["font_s"])
         s.map("Danger.TButton",
               background=[("active", T["red_hover"]), ("disabled", T["panel2"])],
-              foreground=[("active", "#fff4f0"), ("disabled", T["dimmer"])],
+              foreground=[("active", T["danger_hover_fg"]), ("disabled", T["dimmer"])],
               bordercolor=[("active", T["red"])])
         s.configure("Stop.TButton", background=T["panel2"], foreground=T["fg"],
                     bordercolor=T["border2"], lightcolor=T["border2"],
@@ -474,6 +518,66 @@ class GhostkeyApp:
                     bordercolor=T["border"], arrowcolor=T["dim"])
         s.configure("TSeparator", background=T["border"])
 
+    def _toggle_theme(self):
+        """Switch between the dark and light palettes and repaint live widgets."""
+        old = dict(T)
+        self.dark = not self.dark
+        for key, value in THEMES["dark" if self.dark else "light"].items():
+            if not key.startswith("font"):
+                T[key] = value
+        self._apply_theme()
+        self._repaint_colors(old)
+        self.theme_btn.configure(text="☀ LIGHT" if self.dark else "☾ DARK")
+
+    def _repaint_colors(self, old):
+        """Remap every widget from the previous palette colors to the current ones."""
+        mapping = {}
+        for key, value in old.items():
+            if isinstance(value, str) and value.startswith("#"):
+                mapping[value.lower()] = T[key]
+        options = ("background", "foreground", "activebackground", "activeforeground",
+                   "insertbackground", "highlightbackground", "highlightcolor",
+                   "selectbackground", "selectforeground", "troughcolor",
+                   "selectcolor", "disabledforeground", "inactiveselectbackground")
+
+        def walk(widget):
+            for option in options:
+                try:
+                    current = str(widget.cget(option)).lower()
+                except tk.TclError:
+                    continue
+                target = mapping.get(current)
+                if target:
+                    try:
+                        widget.configure(**{option: target})
+                    except tk.TclError:
+                        pass
+            if isinstance(widget, RoundedPanel):
+                widget._panel_bg = mapping.get(str(widget._panel_bg).lower(),
+                                               widget._panel_bg)
+                widget._border = mapping.get(str(widget._border).lower(),
+                                             widget._border)
+                if widget._accent:
+                    widget._accent = mapping.get(str(widget._accent).lower(),
+                                                 widget._accent)
+                widget._draw()
+            for child in widget.winfo_children():
+                walk(child)
+
+        walk(self.root)
+
+        for tag, key in {"info": "fg_mid", "open": "accent", "close": "red",
+                         "digest": "warn", "err": "red"}.items():
+            self.live_log.tag_config(tag, foreground=T[key])
+        for tag, key in {"hdr": "accent", "sep": "dimmer", "key": "dim",
+                         "body": "fg", "num": "fg_mid"}.items():
+            self.output.tag_config(tag, foreground=T[key])
+        self.table.tag_configure("odd", background=T["panel"])
+        self.table.tag_configure("even", background=T["panel2"])
+        self.table.tag_configure("empty", foreground=T["dimmer"])
+        self._style_scrollbar(self.live_log)
+        self._style_scrollbar(self.output)
+
     # ------------------------------------------------------------ ui
     def _build_ui(self):
         header = tk.Frame(self.root, bg=T["bg"], height=72)
@@ -509,6 +613,14 @@ class GhostkeyApp:
         self.sid_lbl = tk.Label(right, text=f"SID {self.session_id}", bg=T["bg"],
                                 fg=T["dimmer"], font=T["font_xs"])
         self.sid_lbl.pack(side="right", padx=(0, 12), pady=(27, 0))
+        self.theme_btn = tk.Button(right, text="☀ LIGHT", command=self._toggle_theme,
+                                   bg=T["bg"], fg=T["dim"],
+                                   activebackground=T["panel2"],
+                                   activeforeground=T["accent"],
+                                   relief="flat", bd=0, highlightthickness=0,
+                                   font=T["font_xs"], cursor="hand2",
+                                   padx=9, pady=3)
+        self.theme_btn.pack(side="right", padx=(12, 0), pady=(25, 0))
 
         rule = tk.Frame(self.root, bg=T["border"], height=1)
         rule.pack(fill="x", padx=24, pady=(10, 0))

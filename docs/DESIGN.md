@@ -47,6 +47,32 @@ ticks, not glow.
 Contrast: `fg` on `bg` ≈ 12:1, `dim` on `panel` ≈ 4.9:1, amber on `panel`
 ≈ 7:1. All primary text meets WCAG AA.
 
+### Light palette
+
+The header toggle (`☀ LIGHT` / `☾ DARK`) swaps the active palette at runtime.
+The light variant keeps the same token names on a warm paper ground:
+
+| Token | Hex | Use |
+|-------|-----|-----|
+| `bg` | `#f4f0e7` | Window background |
+| `panel` | `#fbf8f1` | Card and tab surfaces |
+| `panel2` | `#f0e9dc` | Buttons, headings, alternating rows |
+| `panel3` | `#e4dac7` | Hover and selection fills |
+| `border` | `#d8cdb8` | Quiet rules and panel outline |
+| `border2` | `#b9a98f` | Emphasized outlines |
+| `fg` | `#28231b` | Primary text |
+| `fg_mid` | `#4a4235` | Secondary text and trace body |
+| `dim` | `#7a6f5e` | Labels, helper copy |
+| `dimmer` | `#a0937e` | Footer, timestamps, disabled |
+| `accent` | `#a86a20` | Amber ink: prompts, values, active tab |
+| `accent_ink` | `#fffaf0` | Text on solid amber buttons |
+| `green` | `#3f7d4f` | Active session, successful relay |
+| `warn` | `#8a6a1f` | Starting and finalizing |
+| `red` | `#a63a2a` | Errors, close events |
+
+Both palettes live in `scan.py` as `DARK_THEME` and `LIGHT_THEME`; the toggle
+remaps widget colors in place, so session state and scroll position survive.
+
 ## Typography
 
 | Role | Face | Size |
